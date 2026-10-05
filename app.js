@@ -128,41 +128,44 @@ app.post('/emprestimos', (req, res) => {
     if (!exemplar) return res.status(404).json({ error: "Exemplar não encontrado." });
     if (!exemplar.disponivel) return res.status(400).json({ error: "Este exemplar já está emprestado." });
 
+    const hoje = new Date();
+    const possuiAtrasos = db.emprestimos.some(e => 
+        e.leitorId === leitor.id && 
+        e.status === "ATIVO" && 
+        new Date(e.dataDevolucaoPrevista) < hoje
+    );
+
+    if (possuiAtrasos || leitor.bloqueado) {
+        leitor.bloqueado = true;
+        return res.status(403).json({ error: "Empréstimo negado. O leitor possui pendências de atraso." });
+    }
+
+    const emprestimosAtivos = db.emprestimos.filter(e => e.leitorId === leitor.id && e.status === "ATIVO");
+    if (emprestimosAtivos.length >= 3) {
+        return res.status(403).json({ error: "Empréstimo negado. Limite máximo de 3 livros atingido." });
+    }
+
     const dataEmprestimo = new Date();
     const dataDevolucaoPrevista = new Date();
     dataDevolucaoPrevista.setDate(dataEmprestimo.getDate() + 7);
 
-    const novoEmprestimo = {
+    const nuevoEmprestimo = {
         id: db.emprestimos.length + 1,
-        leitorId: parseInt(leitorId),
-        exemplarId: parseInt(exemplarId),
+        leitorId: leitor.id,
+        exemplarId: exemplar.id,
         dataEmprestimo,
         dataDevolucaoPrevista,
         dataDevolucaoReal: null,
-        status: "ATIVO" // ATIVO, DEVOLVIDO, ATRASADO
+        status: "ATIVO"
     };
 
-    exemplar.disponivel = false; 
-    db.emprestimos.push(novoEmprestimo);
+    exemplar.disponivel = false;
+    db.emprestimos.push(nuevoEmprestimo);
 
-    res.status(201).json(novoEmprestimo);
+    res.status(201).json(nuevoEmprestimo);
 });
 
-app.post('/emprestimos/:id/devolucao', (req, res) => {
-    const { id } = req.params;
-    const emprestimo = db.emprestimos.find(e => e.id === parseInt(id));
 
-    if (!emprestimo) return res.status(404).json({ error: "Empréstimo não encontrado." });
-    if (emprestimo.status === "DEVOLVIDO") return res.status(400).json({ error: "Este empréstimo já foi devolvido." });
-
-    const exemplar = db.exemplares.find(e => e.id === emprestimo.exemplarId);
-    
-    emprestimo.dataDevolucaoReal = new Date();
-    emprestimo.status = "DEVOLVIDO";
-    if (exemplar) exemplar.disponivel = true; // Libera o exemplar 
-
-    res.json({ message: "Devolução processada com sucesso!", emprestimo });
-});
 
 
 app.listen(PORT, () => console.log(`Servidor rodando na porta http://localhost:${PORT}`));
