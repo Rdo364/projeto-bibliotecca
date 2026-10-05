@@ -165,6 +165,42 @@ app.post('/emprestimos', (req, res) => {
     res.status(201).json(nuevoEmprestimo);
 });
 
+//Historico de empréstimos e renovação
+
+app.post('/emprestimos/:id/renovacao', (req, res) => {
+    const { id } = req.params;
+    const emprestimo = db.emprestimos.find(e => e.id === parseInt(id));
+
+    if (!emprestimo) return res.status(404).json({ error: "Empréstimo não encontrado." });
+    if (emprestimo.status !== "ATIVO") return res.status(400).json({ error: "Apenas empréstimos ativos podem ser renovados." });
+
+    const hoje = new Date();
+    if (new Date(emprestimo.dataDevolucaoPrevista) < hoje) {
+        return res.status(400).json({ error: "Não é possível renovar um livro já vencido." });
+    }
+
+    const novaData = new Date(emprestimo.dataDevolucaoPrevista);
+    novaData.setDate(novaData.getDate() + 7);
+    emprestimo.dataDevolucaoPrevista = novaData;
+
+    res.json({ message: "Prazo renovado com sucesso!", emprestimo });
+});
+
+app.get('/leitores/:id/historico', (req, res) => {
+    const { id } = req.params;
+    const leitor = db.leitores.find(l => l.id === parseInt(id));
+    
+    if (!leitor) return res.status(404).json({ error: "Leitor não encontrado." });
+
+    const historico = db.emprestimos.filter(e => e.leitorId === parseInt(id));
+    
+    res.json({
+        leitor: leitor.nome,
+        bloqueado: leitor.bloqueado,
+        totalEmprestimos: historico.length,
+        historico
+    });
+});
 
 
 
