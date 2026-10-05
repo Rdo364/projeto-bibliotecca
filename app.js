@@ -79,19 +79,19 @@ app.post('/exemplares', (req, res) => {
 app.post('/leitores', (req, res) => {
     const { nome, email } = req.body;
     if (!nome || !email) return res.status(400).json({ error: "Nome e email são obrigatórios." });
-
-    const novoLeitor = { 
-        id: db.leitores.length + 1, 
-        nome, 
-        email, 
-        bloqueado: false 
-    };
-    db.leitores.push(novoLeitor);
-    res.status(201).json(novoLeitor);
-});
-
-app.get('/leitores', (req, res) => {
-    res.json(db.leitores);
+    
+        const novoLeitor = { 
+            id: db.leitores.length + 1, 
+            nome, 
+            email, 
+            bloqueado: false 
+        };
+        db.leitores.push(novoLeitor);
+        res.status(201).json(novoLeitor);
+    });
+    
+    app.get('/leitores', (req, res) => {
+        res.json(db.leitores);
 });
 
 app.put('/leitores/:id', (req, res) => {
@@ -115,5 +115,54 @@ app.delete('/leitores/:id', (req, res) => {
     db.leitores.splice(index, 1);
     res.status(204).send();
 });
+
+// Emprestimos e devoluções
+
+app.post('/emprestimos', (req, res) => {
+    const { leitorId, exemplarId } = req.body;
+
+    const leitor = db.leitores.find(l => l.id === parseInt(leitorId));
+    const exemplar = db.exemplares.find(e => e.id === parseInt(exemplarId));
+
+    if (!leitor) return res.status(404).json({ error: "Leitor não encontrado." });
+    if (!exemplar) return res.status(404).json({ error: "Exemplar não encontrado." });
+    if (!exemplar.disponivel) return res.status(400).json({ error: "Este exemplar já está emprestado." });
+
+    const dataEmprestimo = new Date();
+    const dataDevolucaoPrevista = new Date();
+    dataDevolucaoPrevista.setDate(dataEmprestimo.getDate() + 7);
+
+    const novoEmprestimo = {
+        id: db.emprestimos.length + 1,
+        leitorId: parseInt(leitorId),
+        exemplarId: parseInt(exemplarId),
+        dataEmprestimo,
+        dataDevolucaoPrevista,
+        dataDevolucaoReal: null,
+        status: "ATIVO" // ATIVO, DEVOLVIDO, ATRASADO
+    };
+
+    exemplar.disponivel = false; 
+    db.emprestimos.push(novoEmprestimo);
+
+    res.status(201).json(novoEmprestimo);
+});
+
+app.post('/emprestimos/:id/devolucao', (req, res) => {
+    const { id } = req.params;
+    const emprestimo = db.emprestimos.find(e => e.id === parseInt(id));
+
+    if (!emprestimo) return res.status(404).json({ error: "Empréstimo não encontrado." });
+    if (emprestimo.status === "DEVOLVIDO") return res.status(400).json({ error: "Este empréstimo já foi devolvido." });
+
+    const exemplar = db.exemplares.find(e => e.id === emprestimo.exemplarId);
+    
+    emprestimo.dataDevolucaoReal = new Date();
+    emprestimo.status = "DEVOLVIDO";
+    if (exemplar) exemplar.disponivel = true; // Libera o exemplar 
+
+    res.json({ message: "Devolução processada com sucesso!", emprestimo });
+});
+
 
 app.listen(PORT, () => console.log(`Servidor rodando na porta http://localhost:${PORT}`));
