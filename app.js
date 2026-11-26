@@ -11,26 +11,43 @@ const db = {
     emprestimos: []
 };
 
+// Contadores para evitar IDs duplicados 
+const contadorIds = {
+    livros: 1,
+    exemplares: 1,
+    leitores: 1,
+    emprestimos: 1
+};
+
 // Teste
 app.get('/', (req, res) => {
     res.json({ message: "API Biblioteca rodando com sucesso!" });
 });
 
-//Crud de Livros
-
+// crud de livros
 
 app.post('/livros', (req, res) => {
     const { titulo, autor, isbn } = req.body;
     if (!titulo || !autor || !isbn) {
         return res.status(400).json({ error: "Título, autor e ISBN são obrigatórios." });
     }
-    const novoLivro = { id: db.livros.length + 1, titulo, autor, isbn };
+    
+    const novoLivro = { id: contadorIds.livros++, titulo, autor, isbn };
     db.livros.push(novoLivro);
     res.status(201).json(novoLivro);
 });
 
 app.get('/livros', (req, res) => {
     res.json(db.livros);
+});
+
+// buscar livro por id
+app.get('/livros/:id', (req, res) => {
+    const { id } = req.params;
+    const livro = db.livros.find(l => l.id === parseInt(id));
+    
+    if (!livro) return res.status(404).json({ error: "Livro não encontrado." });
+    res.json(livro);
 });
 
 app.put('/livros/:id', (req, res) => {
@@ -56,6 +73,8 @@ app.delete('/livros/:id', (req, res) => {
     res.status(204).send();
 });
 
+// exemplares
+
 app.post('/exemplares', (req, res) => {
     const { livroId, codigoPatrimonio } = req.body;
     const livroExiste = db.livros.some(l => l.id === parseInt(livroId));
@@ -64,7 +83,7 @@ app.post('/exemplares', (req, res) => {
     if (!codigoPatrimonio) return res.status(400).json({ error: "Código de patrimônio é obrigatório." });
 
     const novoExemplar = { 
-        id: db.exemplares.length + 1, 
+        id: contadorIds.exemplares++, 
         livroId: parseInt(livroId), 
         codigoPatrimonio,
         disponivel: true 
@@ -74,24 +93,34 @@ app.post('/exemplares', (req, res) => {
 });
 
 
-// Crud de Leitores
+// crud de leitores
+
 
 app.post('/leitores', (req, res) => {
     const { nome, email } = req.body;
     if (!nome || !email) return res.status(400).json({ error: "Nome e email são obrigatórios." });
     
-        const novoLeitor = { 
-            id: db.leitores.length + 1, 
-            nome, 
-            email, 
-            bloqueado: false 
-        };
-        db.leitores.push(novoLeitor);
-        res.status(201).json(novoLeitor);
-    });
+    const novoLeitor = { 
+        id: contadorIds.leitores++, 
+        nome, 
+        email, 
+        bloqueado: false 
+    };
+    db.leitores.push(novoLeitor);
+    res.status(201).json(novoLeitor);
+});
     
-    app.get('/leitores', (req, res) => {
-        res.json(db.leitores);
+app.get('/leitores', (req, res) => {
+    res.json(db.leitores);
+});
+
+// Buscar leitor por ID
+app.get('/leitores/:id', (req, res) => {
+    const { id } = req.params;
+    const leitor = db.leitores.find(l => l.id === parseInt(id));
+    
+    if (!leitor) return res.status(404).json({ error: "Leitor não encontrado." });
+    res.json(leitor);
 });
 
 app.put('/leitores/:id', (req, res) => {
@@ -116,7 +145,8 @@ app.delete('/leitores/:id', (req, res) => {
     res.status(204).send();
 });
 
-// Emprestimos e devoluções
+// emprestimos e dev
+
 
 app.post('/emprestimos', (req, res) => {
     const { leitorId, exemplarId } = req.body;
@@ -149,8 +179,8 @@ app.post('/emprestimos', (req, res) => {
     const dataDevolucaoPrevista = new Date();
     dataDevolucaoPrevista.setDate(dataEmprestimo.getDate() + 7);
 
-    const nuevoEmprestimo = {
-        id: db.emprestimos.length + 1,
+    const novoEmprestimo = {
+        id: contadorIds.emprestimos++,
         leitorId: leitor.id,
         exemplarId: exemplar.id,
         dataEmprestimo,
@@ -160,12 +190,14 @@ app.post('/emprestimos', (req, res) => {
     };
 
     exemplar.disponivel = false;
-    db.emprestimos.push(nuevoEmprestimo);
+    db.emprestimos.push(novoEmprestimo);
 
-    res.status(201).json(nuevoEmprestimo);
+    res.status(201).json(novoEmprestimo);
 });
 
-//Historico de empréstimos e renovação
+
+// historico e renovacao
+
 
 app.post('/emprestimos/:id/renovacao', (req, res) => {
     const { id } = req.params;
@@ -201,7 +233,5 @@ app.get('/leitores/:id/historico', (req, res) => {
         historico
     });
 });
-
-
 
 app.listen(PORT, () => console.log(`Servidor rodando na porta http://localhost:${PORT}`));
